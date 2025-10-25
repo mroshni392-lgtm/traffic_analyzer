@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Traffic Analytics Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        font-family: "Poppins", sans-serif;
+        background: #eef3f8;
+        margin: 0;
+        padding: 0;
+      }
+
+      h1 {
+        text-align: center;
+        color: #2c3e50;
+        padding: 20px;
+      }
+
+      .container {
+        width: 90%;
+        max-width: 850px;
+        margin: 20px auto;
+        background: white;
+        padding: 25px;
+        border-radius: 20px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+
+      .stat {
+        font-size: 16px;
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 8px 0;
+      }
+
+      canvas {
+        margin-top: 25px;
+      }
+
+      .footer {
+        text-align: center;
+        margin-top: 20px;
+        color: #777;
+        font-size: 13px;
+      }
+
+      button {
+        display: block;
+        margin: 20px auto;
+        padding: 10px 20px;
+        background: #007bff;
+        color: white;
+        font-weight: 600;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: 0.3s;
+      }
+
+      button:hover {
+        background: #0056b3;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>📊 Smart City Traffic Analytics</h1>
+
+    <div class="container">
+      <div id="stats">
+        <p class="stat">Total Routes: <span id="total">0</span></p>
+        <p class="stat">High Traffic: <span id="high">0</span></p>
+        <p class="stat">Medium Traffic: <span id="medium">0</span></p>
+        <p class="stat">Low Traffic: <span id="low">0</span></p>
+        <p class="stat">Most Congested Route: <span id="worstRoute">-</span></p>
+      </div>
+
+      <canvas id="trafficChart" width="400" height="200"></canvas>
+
+      <button onclick="window.location.href='traffic.html'">⬅️ Back to Traffic Map</button>
+    </div>
+
+    <p class="footer">Auto-refreshes every 60 seconds ⏱️</p>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+      import { getFirestore } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+      // ✅ Your Firebase config (keep same as traffic.html)
+      const firebaseConfig = {
+        apiKey: "AIzaSyAu7pDAiYNWGWXxCUom0_uiTx2omigT7Ec",
+        authDomain: "smart-city-traffic-app-fa8f3.firebaseapp.com",
+        projectId: "smart-city-traffic-app-fa8f3",
+        storageBucket: "smart-city-traffic-app-fa8f3.appspot.com",
+        messagingSenderId: "858416744357",
+        appId: "1:858416744357:web:703b8145711372a04cca4c",
+        measurementId: "G-TFTDBVWDH3"
+      };
+
+      // ✅ Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+
+      // ✅ Your Google Apps Script endpoint
+      const sheetURL =
+        "https://script.google.com/macros/s/AKfycbzdAe7-CrAgqaH_TQdorGpHSsr2amBRB7VdHwWU74eCWMi7vLl49LxLJ2ah4cdRkHFI/exec";
+
+      let chartInstance = null;
+
+      async function loadAnalytics() {
+        try {
+          const res = await fetch(sheetURL);
+          const data = await res.json();
+
+          let total = data.length;
+          let high = 0,
+            medium = 0,
+            low = 0;
+          let routeCount = {};
+
+          data.forEach((row) => {
+            const level = row.Traffic_Level?.toLowerCase();
+            if (level === "high") high++;
+            else if (level === "medium") medium++;
+            else if (level === "low") low++;
+
+            const route = `${row.Start} → ${row.End}`;
+            if (level === "high") {
+              routeCount[route] = (routeCount[route] || 0) + 1;
+            }
+          });
+
+          let worstRoute = "-";
+          if (Object.keys(routeCount).length > 0) {
+            worstRoute = Object.entries(routeCount).sort((a, b) => b[1] - a[1])[0][0];
+          }
+
+          // ✅ Update stats
+          document.getElementById("total").textContent = total;
+          document.getElementById("high").textContent = high;
+          document.getElementById("medium").textContent = medium;
+          document.getElementById("low").textContent = low;
+          document.getElementById("worstRoute").textContent = worstRoute;
+
+          // ✅ Draw or update chart
+          const ctx = document.getElementById("trafficChart");
+          if (chartInstance) chartInstance.destroy();
+          chartInstance = new Chart(ctx, {
+            type: "pie",
+            data: {
+              labels: ["High", "Medium", "Low"],
+              datasets: [
+                {
+                  label: "Traffic Levels",
+                  data: [high, medium, low],
+                  backgroundColor: ["#e74c3c", "#f39c12", "#27ae60"],
+                },
+              ],
+            },
+          });
+
+          console.log("✅ Dashboard updated");
+        } catch (error) {
+          console.error("Error loading analytics:", error);
+        }
+      }
+
+      // ✅ Initial load
+      loadAnalytics();
+
+      // 🔁 Auto refresh every 60 seconds
+      setInterval(loadAnalytics, 60000);
+    </script>
+  </body>
+</html>
